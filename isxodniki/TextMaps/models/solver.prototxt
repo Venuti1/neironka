@@ -1,0 +1,15 @@
+net: "/storage/plzen1/home/gogartom/TextMaps/models/v4_train.prototxt"  		# Change this to the absolute path to your model file
+test_initialization: false
+#test_iter: 30
+#test_interval: 30 #150
+base_lr: 0.0005
+lr_policy: "step"
+gamma: 1.0
+stepsize: 10000000
+display: 20
+momentum: 0.9
+max_iter: 50000
+weight_decay: 0.0005
+#snapshot: 50000
+#snapshot_prefix: "/storage/plzen1/home/gogartom/TextMaps/models/training/both_classif"  	# Change this to the absolute path to where you wish to output solver snapshots
+solver_mode: GPU

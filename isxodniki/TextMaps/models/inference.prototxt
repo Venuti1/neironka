@@ -1,0 +1,252 @@
+name: "segnet"
+input: "im_data"
+input_shape {
+  dim: 1
+  dim: 3
+  dim: 1280
+  dim: 1280
+}
+input: "txt_data"
+input_shape {
+  dim: 1
+  dim: 128
+  dim: 160
+  dim: 160
+}
+input: "boxes"
+input_shape {
+  dim: 1 # to be changed on-the-fly to num ROIs
+  dim: 5 # [batch ind, x1, y1, x2, y2] zero-based indexing
+}
+layer {
+  name: "conv1"
+  type: "Convolution"
+  bottom: "im_data"
+  top: "conv1"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 96
+    kernel_size: 11
+    pad: 5
+    stride: 4
+  }
+}
+layer {
+  name: "relu1"
+  type: "ReLU"
+  bottom: "conv1"
+  top: "conv1"
+}
+layer {
+  name: "pool1"
+  type: "Pooling"
+  bottom: "conv1"
+  top: "pool1"
+  pooling_param {
+    pool: MAX
+    kernel_size: 3
+    pad: 0
+    stride: 2
+  }
+}
+layer {
+  name: "norm1"
+  type: "LRN"
+  bottom: "pool1"
+  top: "norm1"
+  lrn_param {
+    local_size: 5
+    alpha: 0.0001
+    beta: 0.75
+  }
+}
+layer {
+  name: "conv2"
+  type: "Convolution"
+  bottom: "norm1"
+  top: "conv2"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 256
+    kernel_size: 5
+    pad: 2
+    group: 2
+  }
+}
+layer {
+  name: "relu2"
+  type: "ReLU"
+  bottom: "conv2"
+  top: "conv2"
+}
+layer {
+  name: "norm2"
+  type: "LRN"
+  bottom: "conv2"
+  top: "norm2"
+  lrn_param {
+    local_size: 5
+    alpha: 0.0001
+    beta: 0.75
+  }
+}
+layer {
+  name: "my_conv3"
+  type: "Convolution"
+  bottom: "norm2"
+  top: "my_conv3"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 384
+    kernel_size: 3
+    pad: 1
+  }
+}
+layer {
+  name: "relu3"
+  type: "ReLU"
+  bottom: "my_conv3"
+  top: "my_conv3"
+}
+layer {
+  name: "txt_conv1"
+  type: "Convolution"
+  bottom: "txt_data"
+  top: "txt_conv1"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 48
+    kernel_size: 1
+    stride: 1
+    pad: 0
+    weight_filler {
+      type: "gaussian"
+      std: 0.01
+    }
+    bias_filler {
+      type: "constant"
+      value: 0.1
+    }
+  }
+}
+layer {
+  name: "relu3"
+  type: "ReLU"
+  bottom: "txt_conv1"
+  top: "txt_conv1"
+}
+layer {
+  name: "concat"
+  bottom: "my_conv3"
+  bottom: "txt_conv1"
+  top: "concat"
+  type: "Concat"
+  concat_param {
+    axis: 1
+  }
+}
+layer {
+  name: "both_conv1"
+  type: "Convolution"
+  bottom: "concat"
+  top: "both_conv1"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 96
+    kernel_size: 5
+    pad: 2
+    group: 2
+    weight_filler {
+      type: "gaussian"
+      std: 0.01
+    }
+    bias_filler {
+      type: "constant"
+      value: 0.1
+    }
+  }
+}
+layer {
+  name: "both_relu1"
+  type: "ReLU"
+  bottom: "both_conv1"
+  top: "both_conv1"
+}
+layer {
+  name: "roi_pool"
+  type: "ROIPooling"
+  bottom: "both_conv1"
+  bottom: "boxes"
+  top: "roi_pool"
+  roi_pooling_param {
+    pooled_w: 1
+    pooled_h: 1
+    spatial_scale: 0.125 # 1/16
+  }
+}
+layer {
+  name: "conv_classifier"
+  type: "Convolution"
+  bottom: "roi_pool"
+  top: "conv_classifier"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 4
+    kernel_size: 1
+    weight_filler {
+      type: "msra"
+    }
+    bias_filler {
+      type: "constant"
+    }
+  }
+}
+layer {
+  name: "prob"
+  type: "Softmax"
+  bottom: "conv_classifier"
+  top: "prob"
+  softmax_param {engine: CAFFE}
+}
